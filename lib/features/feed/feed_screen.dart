@@ -6,33 +6,23 @@ import '../../core/theme.dart';
 import 'feed_providers.dart';
 import 'market.dart';
 
-// 信息流：读中文在售盘口，卡片列表，点卡进详情。
+// 信息流：读中文在售盘口，卡片列表，点卡进详情。顶栏/底栏由外壳 ScaffoldWithNav 提供。
 class FeedScreen extends ConsumerWidget {
   const FeedScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final feed = ref.watch(feedProvider);
-    return Scaffold(
-      appBar: AppBar(
-        titleSpacing: 16,
-        title: const Text('要闻', style: TextStyle(fontWeight: FontWeight.w800)),
-        actions: [
-          IconButton(onPressed: () => context.push('/login'), icon: const Icon(Icons.person_outline)),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: feed.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Padding(padding: const EdgeInsets.all(24), child: Text('加载失败：$e'))),
-        data: (items) => RefreshIndicator(
-          onRefresh: () async => ref.refresh(feedProvider.future),
-          child: ListView.separated(
-            padding: const EdgeInsets.all(12),
-            itemCount: items.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 10),
-            itemBuilder: (_, i) => _MarketCard(m: items[i]),
-          ),
+    return feed.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Padding(padding: const EdgeInsets.all(24), child: Text('加载失败：$e'))),
+      data: (items) => RefreshIndicator(
+        onRefresh: () async => ref.refresh(feedProvider.future),
+        child: ListView.separated(
+          padding: const EdgeInsets.all(12),
+          itemCount: items.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 10),
+          itemBuilder: (_, i) => _MarketCard(m: items[i]),
         ),
       ),
     );

@@ -13,9 +13,7 @@ class MeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(sessionProvider);
-    return Scaffold(
-      appBar: AppBar(title: const Text('我的', style: TextStyle(fontWeight: FontWeight.w800))),
-      body: Center(
+    return Center(
         child: session == null
             ? Column(mainAxisSize: MainAxisSize.min, children: [
                 const Text('登录后赚积分、做任务、冲榜', style: TextStyle(color: kSubtle)),
@@ -38,7 +36,6 @@ class MeScreen extends ConsumerWidget {
                 const SizedBox(height: 8),
                 const Text('持仓 / 战绩 · 切片三接入', style: TextStyle(fontSize: 12, color: kSubtle)),
               ]),
-      ),
     );
   }
 }
