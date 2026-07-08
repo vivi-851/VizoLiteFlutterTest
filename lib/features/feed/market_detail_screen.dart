@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme.dart';
+import '../account/account_providers.dart';
+import '../bet/bet_sheet.dart';
 import 'feed_providers.dart';
 
-// 盘口详情（切片版：题面 + 概率 + 摘要 + 来源；下注为占位，交易 RPC 后续接）。
+// 盘口详情：题面 + 概率 + 摘要 + 来源 + 真下注（会发生/不会 → 下注弹层）。
 class MarketDetailScreen extends ConsumerWidget {
   const MarketDetailScreen({super.key, required this.id});
   final String id;
@@ -12,8 +14,18 @@ class MarketDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final m = ref.watch(marketProvider(id));
+    final profile = ref.watch(profileProvider).value;
     return Scaffold(
-      appBar: AppBar(title: const Text('盘口详情')),
+      appBar: AppBar(
+        title: const Text('盘口详情'),
+        actions: [
+          if (profile != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 14),
+              child: Center(child: Text('${profile.points} 分', style: const TextStyle(fontWeight: FontWeight.w800, color: kIndigo))),
+            ),
+        ],
+      ),
       body: m.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('加载失败：$e')),
@@ -43,13 +55,14 @@ class MarketDetailScreen extends ConsumerWidget {
                 Text(market.newsSummary!, style: const TextStyle(fontSize: 14, color: Color(0xFF444444), height: 1.55)),
               ],
               const SizedBox(height: 24),
-              Row(children: [
-                Expanded(child: _BetButton(label: '会发生', color: kGreen)),
-                const SizedBox(width: 12),
-                Expanded(child: _BetButton(label: '不会', color: const Color(0xFF64748B))),
-              ]),
-              const SizedBox(height: 8),
-              const Center(child: Text('下注为占位 · 交易 RPC 切片二接入', style: TextStyle(fontSize: 12, color: kSubtle))),
+              if (market.isMulti)
+                const Center(child: Text('多选盘口 · 下注切片后续接入', style: TextStyle(fontSize: 13, color: kSubtle)))
+              else
+                Row(children: [
+                  Expanded(child: _BetButton(label: '会发生', pct: (market.price('yes') * 100).round(), color: kGreen, onTap: () => showBetSheet(context, market, 'yes'))),
+                  const SizedBox(width: 12),
+                  Expanded(child: _BetButton(label: '不会', pct: (market.price('no') * 100).round(), color: const Color(0xFF64748B), onTap: () => showBetSheet(context, market, 'no'))),
+                ]),
             ],
           );
         },
@@ -59,13 +72,18 @@ class MarketDetailScreen extends ConsumerWidget {
 }
 
 class _BetButton extends StatelessWidget {
-  const _BetButton({required this.label, required this.color});
+  const _BetButton({required this.label, required this.pct, required this.color, required this.onTap});
   final String label;
+  final int pct;
   final Color color;
+  final VoidCallback onTap;
   @override
   Widget build(BuildContext context) => FilledButton(
-        onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('交易将在切片二接入'))),
-        style: FilledButton.styleFrom(backgroundColor: color, padding: const EdgeInsets.symmetric(vertical: 16)),
-        child: Text(label, style: const TextStyle(fontWeight: FontWeight.w800)),
+        onPressed: onTap,
+        style: FilledButton.styleFrom(backgroundColor: color, padding: const EdgeInsets.symmetric(vertical: 14)),
+        child: Column(children: [
+          Text(label, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+          Text('$pct%', style: const TextStyle(fontSize: 12, color: Colors.white70)),
+        ]),
       );
 }

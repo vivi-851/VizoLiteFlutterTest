@@ -7,7 +7,7 @@ class FeedRepository {
   final SupabaseClient _db;
 
   static const _cols =
-      'id, question, category, news_headline, news_summary, news_source, news_image, news_url, init_prob, created_at';
+      'id, question, category, news_headline, news_summary, news_source, news_image, news_url, init_prob, pool_yes, pool_no, kind, created_at';
 
   Future<List<Market>> fetchFeed({int limit = 20, int offset = 0}) async {
     final rows = await _db
