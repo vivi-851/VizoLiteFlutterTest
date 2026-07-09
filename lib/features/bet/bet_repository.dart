@@ -12,7 +12,19 @@ class BetRepository {
       'p_side': side,
       'p_stake': stake,
     });
-    // RPC 返回一行 profiles（可能是 Map 或单元素 List）
+    return _points(row);
+  }
+
+  // 多选盘口下注：place_gen_bet_multi(p_outcome_id, p_stake)。
+  Future<int> placeMultiBet({required String outcomeId, required int stake}) async {
+    final row = await _db.rpc('place_gen_bet_multi', params: {
+      'p_outcome_id': outcomeId,
+      'p_stake': stake,
+    });
+    return _points(row);
+  }
+
+  int _points(dynamic row) {
     final map = row is List ? (row.first as Map<String, dynamic>) : (row as Map<String, dynamic>);
     return (map['points'] as num?)?.toInt() ?? 0;
   }

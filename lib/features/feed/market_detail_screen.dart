@@ -56,7 +56,7 @@ class MarketDetailScreen extends ConsumerWidget {
               ],
               const SizedBox(height: 24),
               if (market.isMulti)
-                const Center(child: Text('多选盘口 · 下注切片后续接入', style: TextStyle(fontSize: 13, color: kSubtle)))
+                _MultiOutcomes(marketId: market.id, title: market.title)
               else
                 Row(children: [
                   Expanded(child: _BetButton(label: '会发生', pct: (market.price('yes') * 100).round(), color: kGreen, onTap: () => showBetSheet(context, market, 'yes'))),
@@ -67,6 +67,54 @@ class MarketDetailScreen extends ConsumerWidget {
           );
         },
       ),
+    );
+  }
+}
+
+// 多选盘口：候选项列表，每档 label + 成交价% + 下注。
+class _MultiOutcomes extends ConsumerWidget {
+  const _MultiOutcomes({required this.marketId, required this.title});
+  final String marketId;
+  final String title;
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final oc = ref.watch(outcomesProvider(marketId));
+    return oc.when(
+      loading: () => const Padding(padding: EdgeInsets.all(20), child: Center(child: CircularProgressIndicator())),
+      error: (e, _) => Text('候选项加载失败：$e', style: const TextStyle(color: kSubtle)),
+      data: (list) {
+        if (list.isEmpty) return const Text('暂无候选项', style: TextStyle(color: kSubtle));
+        final total = list.fold<num>(0, (s, o) => s + o.pool);
+        return Column(
+          children: [
+            const Align(alignment: Alignment.centerLeft, child: Text('选择结果下注', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kSubtle))),
+            const SizedBox(height: 10),
+            for (final o in list)
+              Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: kBorder)),
+                child: Row(children: [
+                  Expanded(child: Text(o.label, style: const TextStyle(fontWeight: FontWeight.w700, color: kInk))),
+                  Text('${total > 0 ? ((o.pool / total) * 100).round() : 0}%', style: const TextStyle(fontWeight: FontWeight.w700, color: kIndigo)),
+                  const SizedBox(width: 12),
+                  FilledButton(
+                    onPressed: () => showMultiBetSheet(
+                      context,
+                      marketId: marketId,
+                      title: title,
+                      outcomeId: o.id,
+                      label: o.label,
+                      price: total > 0 ? o.pool / total : 0.5,
+                    ),
+                    style: FilledButton.styleFrom(backgroundColor: kInk, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), minimumSize: Size.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                    child: const Text('下注', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                  ),
+                ]),
+              ),
+          ],
+        );
+      },
     );
   }
 }

@@ -12,3 +12,6 @@ final feedProvider = FutureProvider<List<Market>>(
 
 final marketProvider = FutureProvider.family<Market?, String>(
     (ref, id) => ref.read(feedRepoProvider).fetchOne(id));
+
+final outcomesProvider = FutureProvider.family<List<Outcome>, String>(
+    (ref, marketId) => ref.read(feedRepoProvider).fetchOutcomes(marketId));

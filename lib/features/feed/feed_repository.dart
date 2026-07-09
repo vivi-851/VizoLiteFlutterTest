@@ -31,4 +31,14 @@ class FeedRepository {
         .maybeSingle();
     return row == null ? null : Market.fromJson(row);
   }
+
+  // 多选盘口候选项（公开可读 gmo_select_all）。
+  Future<List<Outcome>> fetchOutcomes(String marketId) async {
+    final rows = await _db
+        .from('generated_market_outcomes')
+        .select('id, idx, label, pool')
+        .eq('market_id', marketId)
+        .order('idx', ascending: true);
+    return (rows as List).map((e) => Outcome.fromJson(e as Map<String, dynamic>)).toList();
+  }
 }

@@ -69,3 +69,19 @@ class Market {
 
   String get title => (newsHeadline?.isNotEmpty == true) ? newsHeadline! : question;
 }
+
+// 多选盘口候选项（generated_market_outcomes）。
+class Outcome {
+  final String id;
+  final int idx;
+  final String label;
+  final num pool;
+  Outcome({required this.id, required this.idx, required this.label, required this.pool});
+  factory Outcome.fromJson(Map<String, dynamic> j) => Outcome(
+        id: j['id'] as String,
+        idx: (j['idx'] as num?)?.toInt() ?? 0,
+        label: (j['label'] ?? '') as String,
+        pool: (j['pool'] as num?) ?? 1,
+      );
+}
+

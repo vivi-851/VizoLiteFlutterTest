@@ -12,27 +12,58 @@ import 'bet_repository.dart';
 
 final betRepoProvider = Provider<BetRepository>((ref) => BetRepository(Supabase.instance.client));
 
-// 打开下注弹层。多选盘口暂不支持（切片后续）。
+const _amounts = [50, 100, 200, 500];
+
+// 二元盘口下注弹层。
 void showBetSheet(BuildContext context, Market market, String side) {
-  if (market.isMulti) {
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('多选盘口下注切片后续接入')));
-    return;
-  }
+  _open(context, _BetSheet(market: market, initialSide: side));
+}
+
+// 多选盘口某一档下注弹层。
+void showMultiBetSheet(BuildContext context, {
+  required String marketId,
+  required String title,
+  required String outcomeId,
+  required String label,
+  required double price,
+}) {
+  _open(context, _BetSheet(
+    multiMarketId: marketId, multiTitle: title, outcomeId: outcomeId, multiLabel: label, multiPrice: price,
+  ));
+}
+
+void _open(BuildContext context, Widget sheet) {
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.white,
     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-    builder: (_) => _BetSheet(market: market, initialSide: side),
+    builder: (_) => sheet,
   );
 }
 
-const _amounts = [50, 100, 200, 500];
-
 class _BetSheet extends ConsumerStatefulWidget {
-  const _BetSheet({required this.market, required this.initialSide});
-  final Market market;
+  const _BetSheet({
+    this.market,
+    this.initialSide = 'yes',
+    this.outcomeId,
+    this.multiMarketId,
+    this.multiTitle,
+    this.multiLabel,
+    this.multiPrice,
+  });
+  // 二元
+  final Market? market;
   final String initialSide;
+  // 多选
+  final String? outcomeId;
+  final String? multiMarketId;
+  final String? multiTitle;
+  final String? multiLabel;
+  final double? multiPrice;
+
+  bool get isMulti => outcomeId != null;
+
   @override
   ConsumerState<_BetSheet> createState() => _BetSheetState();
 }
@@ -43,14 +74,26 @@ class _BetSheetState extends ConsumerState<_BetSheet> {
   bool _busy = false;
   String? _error;
 
+  String get _title => widget.isMulti ? (widget.multiTitle ?? '') : widget.market!.title;
+  double get _price => widget.isMulti ? widget.multiPrice! : widget.market!.price(_side);
+  int get _payout => (_price <= 0 ? _stake : _stake / _price).round();
+
   Future<void> _confirm() async {
     setState(() { _busy = true; _error = null; });
     try {
-      final points = await ref.read(betRepoProvider).placeBet(genId: widget.market.id, side: _side, stake: _stake);
+      final repo = ref.read(betRepoProvider);
+      final int points;
+      if (widget.isMulti) {
+        points = await repo.placeMultiBet(outcomeId: widget.outcomeId!, stake: _stake);
+        ref.invalidate(outcomesProvider(widget.multiMarketId!));
+        ref.invalidate(marketProvider(widget.multiMarketId!));
+      } else {
+        points = await repo.placeBet(genId: widget.market!.id, side: _side, stake: _stake);
+        ref.invalidate(feedProvider);
+        ref.invalidate(marketProvider(widget.market!.id));
+      }
       ref.invalidate(profileProvider);
       ref.invalidate(myBetsProvider);
-      ref.invalidate(feedProvider);
-      ref.invalidate(marketProvider(widget.market.id));
       if (!mounted) return;
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('下注成功 · 余额 $points 分')));
@@ -65,7 +108,6 @@ class _BetSheetState extends ConsumerState<_BetSheet> {
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(sessionProvider);
-    final m = widget.market;
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
     return Padding(
@@ -76,7 +118,7 @@ class _BetSheetState extends ConsumerState<_BetSheet> {
         children: [
           Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: kBorder, borderRadius: BorderRadius.circular(999)))),
           const SizedBox(height: 16),
-          Text(m.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800, color: kInk, height: 1.3)),
+          Text(_title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800, color: kInk, height: 1.3)),
           const SizedBox(height: 16),
 
           if (session == null) ...[
@@ -88,14 +130,23 @@ class _BetSheetState extends ConsumerState<_BetSheet> {
               child: const Text('去登录'),
             ),
           ] else ...[
-            // 选边
-            Row(children: [
-              Expanded(child: _SideBtn(label: '会发生', pct: (m.price('yes') * 100).round(), color: kGreen, active: _side == 'yes', onTap: () => setState(() => _side = 'yes'))),
-              const SizedBox(width: 10),
-              Expanded(child: _SideBtn(label: '不会', pct: (m.price('no') * 100).round(), color: const Color(0xFF64748B), active: _side == 'no', onTap: () => setState(() => _side = 'no'))),
-            ]),
+            // 选边（二元）/ 已选档（多选）
+            if (widget.isMulti)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(color: kIndigo.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12), border: Border.all(color: kIndigo.withValues(alpha: 0.35))),
+                child: Row(children: [
+                  Expanded(child: Text(widget.multiLabel ?? '', style: const TextStyle(fontWeight: FontWeight.w800, color: kIndigo))),
+                  Text('${(_price * 100).round()}%', style: const TextStyle(fontWeight: FontWeight.w700, color: kIndigo)),
+                ]),
+              )
+            else
+              Row(children: [
+                Expanded(child: _SideBtn(label: '会发生', pct: (widget.market!.price('yes') * 100).round(), color: kGreen, active: _side == 'yes', onTap: () => setState(() => _side = 'yes'))),
+                const SizedBox(width: 10),
+                Expanded(child: _SideBtn(label: '不会', pct: (widget.market!.price('no') * 100).round(), color: const Color(0xFF64748B), active: _side == 'no', onTap: () => setState(() => _side = 'no'))),
+              ]),
             const SizedBox(height: 16),
-            // 金额
             const Text('下注金额', style: TextStyle(fontSize: 12.5, color: kSubtle)),
             const SizedBox(height: 8),
             Row(children: [
@@ -105,14 +156,13 @@ class _BetSheetState extends ConsumerState<_BetSheet> {
               ],
             ]),
             const SizedBox(height: 16),
-            // 押对可得 + 余额
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(color: kBg, borderRadius: BorderRadius.circular(12)),
               child: Row(children: [
                 const Text('押对可得', style: TextStyle(color: kSubtle, fontSize: 13)),
                 const Spacer(),
-                Text('${m.payout(_side, _stake).round()} 分', style: const TextStyle(fontWeight: FontWeight.w800, color: kGreen, fontSize: 16)),
+                Text('$_payout 分', style: const TextStyle(fontWeight: FontWeight.w800, color: kGreen, fontSize: 16)),
               ]),
             ),
             if (_error != null) Padding(padding: const EdgeInsets.only(top: 10), child: Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 13))),
