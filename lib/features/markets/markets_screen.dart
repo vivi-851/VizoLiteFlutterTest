@@ -201,16 +201,14 @@ class _BrowseCard extends ConsumerWidget {
                 text: '${up ? '↗' : '↘'} ${delta.abs()}% 近24h',
                 bg: (up ? kGreen : const Color(0xFFEF4444)).withValues(alpha: 0.10),
                 fg: up ? kGreen : const Color(0xFFEF4444),
-              )
-            else if (m.endDate != null)
-              Text(m.endDate!, style: const TextStyle(fontSize: 11, color: kSubtle)),
+              ),
           ]),
           const SizedBox(height: 10),
           Text(m.question, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: kInk, height: 1.35)),
           const SizedBox(height: 12),
 
           if (m.isBinary) ...[
-            SizedBox(height: 34, child: CustomPaint(painter: SparkPainter(spark), size: Size.infinite)),
+            TrendSpark(series: spark, pct: m.yesPct),
             const SizedBox(height: 12),
             Row(children: [
               for (final o in m.outcomes.take(2)) ...[
@@ -274,9 +272,12 @@ class _BrowseCard extends ConsumerWidget {
             padding: const EdgeInsets.only(top: 10),
             decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFEFEFF1)))),
             child: Row(children: [
-              Text('流动性 ${m.liquidity.round()} 分', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF555A60))),
+              Text('流动性 ${_fmtNum(m.liquidity.round())} 分', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF555A60))),
               const Spacer(),
-              if (m.endDate != null) Text(m.endDate!, style: const TextStyle(fontSize: 11, color: kSubtle)),
+              Text(
+                [if (!m.isBinary) '${m.outcomes.length} 选项', if (m.endDate != null) '${m.endDate!} 截止'].join(' · '),
+                style: const TextStyle(fontSize: 11, color: kSubtle),
+              ),
             ]),
           ),
         ]),
@@ -284,6 +285,8 @@ class _BrowseCard extends ConsumerWidget {
     );
   }
 }
+
+String _fmtNum(int n) => n.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]},');
 
 class _Pill extends StatelessWidget {
   const _Pill({required this.text, required this.bg, required this.fg});
@@ -312,7 +315,7 @@ class _BuyBtn extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(color: color.withValues(alpha: 0.10), borderRadius: BorderRadius.circular(12)),
         child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text('买 ${o.label}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: color)),
+          Text(o.label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: color)),
           Row(children: [
             Text('×${o.mult}', style: TextStyle(fontSize: 11, color: color.withValues(alpha: 0.7))),
             const SizedBox(width: 6),
